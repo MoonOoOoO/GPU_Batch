@@ -148,26 +148,35 @@ def handle_requests_by_batch():
             except Empty:
                 continue
 
-        if len(requests_batch) < BATCH_SIZE:
-            for req in requests_batch:
-                raw_prediction = np.concatenate(model.predict(req["input"]), axis=1)
-                results = decode_predictions(raw_prediction)
-                data['results'] = []
-                for result in results:
-                    label, prob = result
-                    data['results'].append({
-                        "label": label,
-                        "probability": float(prob)
-                    })
-                req['output'] = data
-        else:
+        # if len(requests_batch) < BATCH_SIZE:
+        #     for req in requests_batch:
+        #         raw_prediction = model.predict(req["input"])
+        #         print(raw_prediction)
+        #
+        #         raw_prediction = np.concatenate(raw_prediction, axis=1)
+        #         print(raw_prediction)
+        #
+        #         results = decode_predictions(raw_prediction)
+        #         print(results)
+        #         data['results'] = []
+        #         for result in results:
+        #             label, prob = result
+        #             data['results'].append({
+        #                 "label": label,
+        #                 "probability": float(prob)
+        #             })
+        #         req['output'] = data
+        # else:
             for i, req in zip(range(len(requests_batch)), requests_batch):
                 batched_input[i, :] = req["input"]
+
+            print(len(batched_input))
 
             batched_input = tf.constant(batched_input)
             preds = model.predict(batched_input)
 
             for raw_prediction, req in zip(preds, requests_batch):
+                print(raw_prediction)
                 raw_prediction = np.concatenate(np.array(raw_prediction), axis=1)
                 results = decode_predictions(raw_prediction)
                 data['results'] = []

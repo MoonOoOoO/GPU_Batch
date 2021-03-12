@@ -1,21 +1,16 @@
-# import time 
+# import time
 import tensorflow as tf
 import cv2
 import numpy as np
-import tensorflow.python.compiler.tensorrt.trt_convert as trt
 from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
 from flask import Flask, request
-from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
 
+app = Flask(__name__)
 batch_size = 8
 batched_input = np.zeros((batch_size, 224, 224, 3), dtype=np.float32)
-config = ConfigProto()
-config.gpu_options.allow_growth = True
-session = InteractiveSession(config=config)
-app = Flask(__name__)
+
 img_path = 'elephant.jpg'
 
 model = ResNet50(weights='imagenet')
