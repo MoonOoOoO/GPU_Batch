@@ -11,7 +11,6 @@ from flask import Flask, request
 from gevent.pywsgi import WSGIServer
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.efficientnet import preprocess_input as preprocess_input_eff
-from multiprocessing.dummy import Pool as ThreadPool
 
 app = Flask(__name__)
 BATCH_SIZE = 8
@@ -148,25 +147,25 @@ def handle_requests_by_batch():
             except Empty:
                 continue
 
-        # if len(requests_batch) < BATCH_SIZE:
-        #     for req in requests_batch:
-        #         raw_prediction = model.predict(req["input"])
-        #         print(raw_prediction)
-        #
-        #         raw_prediction = np.concatenate(raw_prediction, axis=1)
-        #         print(raw_prediction)
-        #
-        #         results = decode_predictions(raw_prediction)
-        #         print(results)
-        #         data['results'] = []
-        #         for result in results:
-        #             label, prob = result
-        #             data['results'].append({
-        #                 "label": label,
-        #                 "probability": float(prob)
-        #             })
-        #         req['output'] = data
-        # else:
+            # if len(requests_batch) < BATCH_SIZE:
+            #     for req in requests_batch:
+            #         raw_prediction = model.predict(req["input"])
+            #         print(raw_prediction)
+            #
+            #         raw_prediction = np.concatenate(raw_prediction, axis=1)
+            #         print(raw_prediction)
+            #
+            #         results = decode_predictions(raw_prediction)
+            #         print(results)
+            #         data['results'] = []
+            #         for result in results:
+            #             label, prob = result
+            #             data['results'].append({
+            #                 "label": label,
+            #                 "probability": float(prob)
+            #             })
+            #         req['output'] = data
+            # else:
             for i, req in zip(range(len(requests_batch)), requests_batch):
                 batched_input[i, :] = req["input"]
 
