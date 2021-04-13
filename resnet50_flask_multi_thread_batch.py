@@ -9,9 +9,10 @@ from flask import Flask, request as flask_request
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.resnet50 import ResNet50
 from tensorflow.keras.applications.resnet50 import preprocess_input, decode_predictions
+from concurrent.futures import ThreadPoolExecutor
 
-BATCH_SIZE = 31
-BATCH_TIMEOUT = 2
+BATCH_SIZE = 50
+BATCH_TIMEOUT = 1
 CHECK_INTERVAL = 0.01
 
 model = ResNet50(weights='imagenet')
@@ -19,17 +20,6 @@ model = ResNet50(weights='imagenet')
 requests_queue = Queue()
 
 app = Flask(__name__)
-
-gpus = tf.config.experimental.list_physical_devices('GPU')
-if gpus:
-    try:
-        tf.config.experimental.set_virtual_device_configuration(
-            gpus[0],
-            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2048)])
-        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        print(e)
 
 
 def prepare_image(raw_image):
@@ -40,11 +30,20 @@ def prepare_image(raw_image):
     return img
 
 
+def form_batch(requests_batch):
+    batched_input = np.zeros((len(requests_batch), 224, 224, 3), dtype=np.float32)
+    with ThreadPoolExecutor(max_workers=BATCH_SIZE) as executor:
+        results = [executor.submit(prepare_image, img['input']) for img in requests_batch]
+    for i, x in zip(range(BATCH_SIZE), results):
+        batched_input[i, :] = x.result()
+    return batched_input
+
+
 def handle_requests_by_batch():
     while True:
         requests_batch = []
         while not (
-                len(requests_batch) > BATCH_SIZE or
+                len(requests_batch) >= BATCH_SIZE or
                 (len(requests_batch) > 0 and time.time() - requests_batch[0]['time'] > BATCH_TIMEOUT)
         ):
             try:
@@ -52,11 +51,9 @@ def handle_requests_by_batch():
             except Empty:
                 continue
 
-        batched_input = np.zeros((len(requests_batch), 224, 224, 3), dtype=np.float32)
-        for i in range(len(requests_batch)):
-            batched_input[i, :] = requests_batch[i]['input']
+        batched_input = form_batch(requests_batch)
+        batch_outputs = model.predict(batched_input, batch_size=BATCH_SIZE)
 
-        batch_outputs = model.predict(tf.constant(batched_input), batch_size=BATCH_SIZE)
         decode_results = decode_predictions(batch_outputs)
 
         for request, output in zip(requests_batch, decode_results):
@@ -73,7 +70,6 @@ def predict():
         if f:
             img = np.fromstring(f.read(), np.uint8)
             img = cv2.imdecode(img, cv2.IMREAD_COLOR)
-            img = prepare_image(img)
             request = {'input': img, 'time': time.time()}
             requests_queue.put(request)
 
